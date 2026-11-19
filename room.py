@@ -42,6 +42,7 @@ class Room:
         self.clock = clock
         self.participants: dict[str, Participant] = {}
         self.facilitator: str | None = None
+        self.jira_operator: str | None = None
         self.tickets: dict[str, Ticket] = {}
         self.statuses: dict[str, str] = {}
         self.current_key: str | None = None
@@ -84,6 +85,11 @@ class Room:
         if recipient_id not in self.participants:
             raise ValueError('Choose an active participant.')
         self.facilitator = recipient_id
+
+    def release_jira_operator(self):
+        # The action response releases the browser's synchronized polling again.
+        self.touch(self.jira_operator)
+        self.jira_operator = None
 
     def merge(self, tickets, total, truncated):
         incoming = {ticket.key: ticket for ticket in tickets}
@@ -172,7 +178,7 @@ class Room:
     def _expire(self):
         cutoff = self.clock() - 30
         for key, participant in list(self.participants.items()):
-            if participant.last_seen < cutoff:
+            if key != self.jira_operator and participant.last_seen < cutoff:
                 del self.participants[key]
                 self.votes.pop(key, None)
                 if self.facilitator == key:

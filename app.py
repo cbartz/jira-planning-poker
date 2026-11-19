@@ -6,7 +6,16 @@ from collections import deque
 from ipaddress import ip_address, ip_network
 from threading import Lock
 
-from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
+from flask import (
+    Flask,
+    abort,
+    flash,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -39,7 +48,6 @@ def create_app(config=None, *, jira=None):
     room, lock = Room(), Lock()
     failures: dict[str, deque[float]] = {}
     sweep_at = 0.0
-    busy = False
     jira_error = None
 
     @app.before_request
@@ -113,7 +121,7 @@ def create_app(config=None, *, jira=None):
 
     @app.post('/room/<action>')
     def change_room(action):
-        nonlocal busy, jira_error
+        nonlocal jira_error
         participant = session['participant_id']
         form = request.form
         with lock:
@@ -121,7 +129,7 @@ def create_app(config=None, *, jira=None):
                 return _redirect('name')
             if action not in {'claim', 'vote'} and room.facilitator != participant:
                 abort(403)
-            if busy and action != 'vote':
+            if room.jira_operator is not None and action != 'vote':
                 return action_result('A Jira request is already in progress.')
             try:
                 revision = form.get('revision', type=int)
@@ -158,7 +166,7 @@ def create_app(config=None, *, jira=None):
             if action not in {'claim', 'load', 'refresh', 'save'}:
                 return action_result()
             # Polls can continue while one network operation reserves room mutations.
-            busy = True
+            room.jira_operator = participant
             jira_error = None
         try:
             if action == 'save':
@@ -168,14 +176,14 @@ def create_app(config=None, *, jira=None):
         except JiraError as error:
             with lock:
                 jira_error = str(error)
-                busy = False
+                room.release_jira_operator()
                 return action_result()
         except BaseException:
             with lock:
-                busy = False
+                room.release_jira_operator()
             raise
         with lock:
-            busy = False
+            room.release_jira_operator()
             if action == 'save':
                 room.finish(revision, 'estimated', size)
             else:
@@ -196,7 +204,7 @@ def create_app(config=None, *, jira=None):
             '_state.html' if partial else 'room.html', room=room, participant=participant,
             facilitator=facilitator, ticket=room.tickets.get(room.current_key), cards=CARDS,
             sizes=SIZE_POINTS, suggestion=room.suggestion,
-            error=error or (jira_error if facilitator else None), busy=busy,
+            error=error or (jira_error if facilitator else None), busy=room.jira_operator is not None,
         )
 
     return app

@@ -11,7 +11,6 @@ import jubilant
 import pytest
 import requests
 from bs4 import BeautifulSoup
-
 from conftest import eventually
 
 pytestmark = pytest.mark.skipif(os.getenv('JIRA_PLANNING_POKER_JUJU_TESTS') != '1',
@@ -85,23 +84,23 @@ def test_charm_login_and_rotation(artifacts):
 def test_deployed_grooming_round(sandbox, issue, artifacts):
     password = secrets.token_urlsafe(24)
     jql = f'key = "{issue}" AND labels = grooming ORDER BY priority DESC, Rank ASC'
-    with deployed(artifacts, password=password, sandbox=sandbox, jql=jql) as (_, base):
-        with requests.Session() as client:
-            assert _login(client, base, password).headers['Location'] == '/name'
-            assert _post(client, base, '/name', name='Facilitator').headers['Location'] == '/'
-            _action(client, base, 'claim')
-            snapshot = eventually(lambda: _find_ticket(client, base, issue), interval=2)
-            assert snapshot, 'Throwaway issue did not appear in the deployed room'
-            current = _action(client, base, 'select', key=issue)
-            round_state = current.select_one('[data-current]')
-            assert round_state['data-current'] == issue
-            revision = round_state['data-revision']
-            _action(client, base, 'vote', size='M', revision=revision)
-            revealed = _action(client, base, 'reveal', revision=revision)
-            assert 'Most common: M' in revealed.get_text()
-            saved = _action(client, base, 'save', size='M', revision=revision)
-            assert saved.select_one('[data-current]')['data-current'] == ''
-            assert 'Estimated' in saved.get_text()
+    with (deployed(artifacts, password=password, sandbox=sandbox, jql=jql) as (_, base),
+          requests.Session() as client):
+        assert _login(client, base, password).headers['Location'] == '/name'
+        assert _post(client, base, '/name', name='Facilitator').headers['Location'] == '/'
+        _action(client, base, 'claim')
+        snapshot = eventually(lambda: _find_ticket(client, base, issue), interval=2)
+        assert snapshot, 'Throwaway issue did not appear in the deployed room'
+        current = _action(client, base, 'select', key=issue)
+        round_state = current.select_one('[data-current]')
+        assert round_state['data-current'] == issue
+        revision = round_state['data-revision']
+        _action(client, base, 'vote', size='M', revision=revision)
+        revealed = _action(client, base, 'reveal', revision=revision)
+        assert 'Most common: M' in revealed.get_text()
+        saved = _action(client, base, 'save', size='M', revision=revision)
+        assert saved.select_one('[data-current]')['data-current'] == ''
+        assert 'Estimated' in saved.get_text()
     fields = sandbox.fields(issue)
     assert fields[sandbox.field] == 3
     assert set(fields['labels']) == {'M', 'test-keep'}

@@ -1,6 +1,6 @@
 import pytest
 
-from room import Room, SIZE_POINTS, Ticket, suggest_size
+from room import SIZE_POINTS, Room, Ticket, suggest_size
 
 
 def test_size_mapping_and_ties():

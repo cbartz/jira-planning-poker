@@ -10,6 +10,12 @@ from room import Ticket
 
 API = 'https://api.atlassian.com/ex/jira/cloud/rest/api/3'
 JQL = 'labels = grooming ORDER BY priority DESC, Rank ASC'
+M_UPDATE = {
+    'fields': {'customfield_10024': 3},
+    'update': {'labels': [
+        {'add': 'M'}, {'remove': 'XS'}, {'remove': 'S'}, {'remove': 'L'}, {'remove': 'grooming'},
+    ]},
+}
 
 
 @pytest.fixture
@@ -68,18 +74,32 @@ def test_over_limit(jira, count_status, payload, expected):
     assert len(responses.calls) == 2
 
 
+@pytest.mark.parametrize('snapshot_labels', [('S', 'grooming', 'keep'), ('M', 'keep')])
 @responses.activate
-def test_save_payload(jira):
+def test_save_payload(jira, snapshot_labels):
     responses.put(f'{API}/issue/P-1', status=204)
-    ticket = Ticket('P-1', labels=('S', 'grooming', 'keep'))
-    jira.save(ticket, 'M')
-    with pytest.raises(ValueError):
-        jira.save(ticket, '?')
+    jira.save(Ticket('P-1', labels=snapshot_labels), 'M')
     assert len(responses.calls) == 1
-    assert json.loads(responses.calls[0].request.body) == {
-        'fields': {'customfield_10024': 3},
-        'update': {'labels': [{'add': 'M'}, {'remove': 'S'}, {'remove': 'grooming'}]},
-    }
+    assert json.loads(responses.calls[0].request.body) == M_UPDATE
+
+
+@responses.activate
+def test_explicit_save_retry_reapplies_the_full_label_update(jira):
+    responses.put(f'{API}/issue/P-1', body=requests.Timeout())
+    responses.put(f'{API}/issue/P-1', status=204)
+    ticket = Ticket('P-1', labels=('M', 'keep'))
+    with pytest.raises(JiraError):
+        jira.save(ticket, 'M')
+    assert len(responses.calls) == 1
+    jira.save(ticket, 'M')
+    assert [json.loads(call.request.body) for call in responses.calls] == [M_UPDATE, M_UPDATE]
+
+
+@responses.activate
+def test_save_rejects_question_mark_without_request(jira):
+    with pytest.raises(ValueError):
+        jira.save(Ticket('P-1'), '?')
+    assert not responses.calls
 
 
 @pytest.mark.parametrize('status', [400, 401, 403, None])

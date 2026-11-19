@@ -51,9 +51,8 @@ class JiraClient:
     def save(self, ticket: Ticket, size: str) -> None:
         if size not in SIZE_POINTS:
             raise ValueError('Choose a size that can be saved.')
-        labels = [{'add': size}] if size not in ticket.labels else []
-        labels.extend({'remove': label} for label in SIZE_POINTS
-                      if label != size and label in ticket.labels)
+        # The loaded ticket can be stale by the time the facilitator saves it.
+        labels = [{'add': size}, *({'remove': label} for label in SIZE_POINTS if label != size)]
         labels.append({'remove': 'grooming'})
         self._request('PUT', f'/issue/{quote(ticket.key, safe="")}', json={
             'fields': {self.field: SIZE_POINTS[size]}, 'update': {'labels': labels},

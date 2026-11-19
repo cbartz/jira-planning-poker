@@ -1,4 +1,5 @@
 from conftest import eventually
+
 from jira import JiraClient
 
 

@@ -1,4 +1,6 @@
 import re
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 
 import pytest
 
@@ -119,6 +121,45 @@ def test_failed_refresh_keeps_snapshot(web):
     assert b'Invalid JQL' in page.data and b'data-current="P-1"' in page.data
     assert b'Second story' in page.data
     assert b'Invalid JQL' not in guest.get('/room/state').data
+
+
+@pytest.mark.parametrize('fails', [False, True])
+def test_slow_refresh_keeps_facilitator_and_vote_until_the_request_finishes(monkeypatch, fails):
+    now = 0
+    monkeypatch.setattr('app.Room', lambda: Room(clock=lambda: now))
+    jira = JiraStub()
+    app = create_app({'TESTING': True, 'SECRET_KEY': 'test-key', 'APP_PASSWORD_VALUE': 'shared'}, jira=jira)
+    host, guest = _join(app, 'Host'), _join(app, 'Guest')
+    _open_round(host)
+    search = jira.search
+    started, release = Event(), Event()
+
+    def slow_search():
+        started.set()
+        assert release.wait(5)
+        if fails:
+            raise JiraError('Jira unavailable')
+        return search()
+
+    jira.search = slow_search
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        refresh = executor.submit(_action, host, 'refresh')
+        try:
+            assert started.wait(5)
+            now = 29
+            guest.get('/room/state')
+            now = 31
+            status = guest.get('/room/state').data
+            assert 'Host · facilitator'.encode() in status
+            assert b'data-revealed-vote>M<' in status
+        finally:
+            release.set()
+        assert refresh.result(timeout=5).status_code == 200
+
+    now = 60
+    assert 'Host · facilitator'.encode() in guest.get('/room/state').data
+    now = 62
+    assert b'Host' not in guest.get('/room/state').data
 
 
 def test_stale_save(web):

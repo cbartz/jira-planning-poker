@@ -125,7 +125,7 @@ Cards: `XS`, `S`, `M`, `L`, `?` (`?` = "can't estimate", never written to Jira).
   ```json
   {
     "fields": {"customfield_10024": 3},
-    "update": {"labels": [{"add": "M"}, {"remove": "S"}, {"remove": "grooming"}]}
+    "update": {"labels": [{"add": "M"}, {"remove": "XS"}, {"remove": "S"}, {"remove": "L"}, {"remove": "grooming"}]}
   }
   ```
 - **Gotchas:**
