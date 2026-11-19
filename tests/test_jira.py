@@ -54,7 +54,7 @@ def test_enhanced_search_paginates(jira):
 
 
 @pytest.mark.parametrize(('count_status', 'payload', 'expected'), [
-    (200, {'count': 231}, 231), (403, {}, None),
+    (200, {'count': 231}, 231), (403, {}, None), (502, {'errorMessages': 502}, None),
 ])
 @responses.activate
 def test_over_limit(jira, count_status, payload, expected):

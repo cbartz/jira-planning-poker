@@ -90,7 +90,11 @@ class JiraClient:
             data = None
         if not 200 <= response.status_code < 300:
             data = data if isinstance(data, dict) else {}
-            messages = data.get('errorMessages') or []
+            messages = data.get('errorMessages')
+            if isinstance(messages, str):
+                messages = [messages]
+            elif not isinstance(messages, list):
+                messages = []
             fields = data.get('errors') or {}
             if isinstance(fields, dict):
                 messages = [*messages, *(f'{name}: {detail}' for name, detail in fields.items())]

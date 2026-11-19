@@ -4,7 +4,7 @@ import pytest
 
 from app import create_app
 from jira import JiraError
-from room import Ticket
+from room import Room, Ticket
 
 
 class JiraStub:
@@ -132,6 +132,86 @@ def test_epic_picker_stays_open_across_polls(web):
     first = re.search(picker, host.get('/room/state').data)[1]
     assert re.search(picker, host.get('/room/state').data)[1] == first
     assert re.search(picker, _action(host, 'filter', epic='P-9').data)[1] != first
+
+
+def test_stale_round_rejected_after_workload_restart(web):
+    app, _ = web
+    old_host = _join(app, 'Host')
+    old_revision = _open_round(old_host)
+    jira = JiraStub()
+    restarted = create_app({'TESTING': True, 'SECRET_KEY': 'test-key', 'APP_PASSWORD_VALUE': 'shared'}, jira=jira)
+    host = restarted.test_client()
+    host.set_cookie('session', old_host.get_cookie('session').value)
+    token = _token(host.get('/name'))
+    host.post('/name', data={'name': 'Host', 'csrf_token': token})
+    _action(host, 'claim')
+    revision = _revision(_action(host, 'select', key='P-2'))
+    _action(host, 'reveal', revision=revision)
+    response = _action(host, 'save', revision=old_revision, size='M')
+    assert b'The round has changed' in response.data
+    assert jira.saves == []
+
+
+def test_suggested_size_stays_stable_after_a_revealed_voter_drops(web, monkeypatch):
+    now = 0
+    monkeypatch.setattr('app.Room', lambda: Room(clock=lambda: now))
+    app = create_app({'TESTING': True, 'SECRET_KEY': 'test-key', 'APP_PASSWORD_VALUE': 'shared'}, jira=web[1])
+    host, guest = _join(app, 'Host'), _join(app, 'Guest')
+    _action(host, 'claim')
+    revision = _revision(_action(host, 'select', key='P-1'))
+    _action(host, 'vote', size='M', revision=revision)
+    _action(guest, 'vote', size='L', revision=revision)
+    revealed = _action(host, 'reveal', revision=revision)
+    picker = rb'<select id="([^"]+)" name="size" hx-preserve'
+    now = 30
+    host.get('/room/state')
+    now = 31
+    polled = host.get('/room/state')
+    assert b'Guest' not in polled.data
+    assert b'Most common: L' in polled.data
+    assert re.search(picker, polled.data)[1] == re.search(picker, revealed.data)[1]
+
+
+def test_login_preserves_password_string_from_env(monkeypatch):
+    monkeypatch.setenv('FLASK_APP_PASSWORD_VALUE', '123.00')
+    app = create_app({'TESTING': True, 'SECRET_KEY': 'test-key'}, jira=JiraStub())
+    client = app.test_client()
+    token = _token(client.get('/login'))
+    assert client.post('/login', data={'password': '123.0', 'csrf_token': token}).status_code == 401
+    assert client.post('/login', data={'password': '123.00', 'csrf_token': token}).status_code == 303
+
+
+def test_only_trusted_ingress_can_forward_client_and_prefix(web):
+    app = create_app({'TESTING': True, 'SECRET_KEY': 'test-key', 'APP_PASSWORD_VALUE': 'shared',
+                      'TRUSTED_PROXY_NETWORK': '192.0.2.1/32'}, jira=web[1])
+    client = app.test_client()
+    forwarded = {'X-Forwarded-For': '203.0.113.1', 'X-Forwarded-Proto': 'https',
+                 'X-Forwarded-Prefix': '/grooming-poker'}
+    proxy = {'REMOTE_ADDR': '192.0.2.1'}
+    direct = {'REMOTE_ADDR': '192.0.2.2'}
+    assert client.get('/', headers=forwarded, environ_overrides=proxy).location == '/grooming-poker/login'
+    assert client.get('/', headers=forwarded, environ_overrides=direct).location == '/login'
+    proxied_login = client.get('/login', headers=forwarded, environ_overrides=proxy)
+    assert b'/grooming-poker/static/htmx.min.js' in proxied_login.data
+    forwarded['Referer'] = 'https://localhost/grooming-poker/login'
+    form = {'password': 'wrong', 'csrf_token': _token(proxied_login)}
+    for _ in range(5):
+        assert client.post('/login', data=form, headers=forwarded, environ_overrides=proxy).status_code == 401
+    assert client.post('/login', data=form, headers=forwarded, environ_overrides=proxy).status_code == 429
+    forwarded['X-Forwarded-For'] = '203.0.113.2'
+    assert client.post('/login', data=form, headers=forwarded, environ_overrides=proxy).status_code == 401
+
+
+def test_poll_controls_keep_stable_focus_ids(web):
+    app, _ = web
+    host = _join(app, 'Host')
+    _action(host, 'claim')
+    selected = _action(host, 'select', key='P-1')
+    polled = host.get('/room/state')
+    for page in [selected, polled]:
+        assert b'id="vote-M"' in page.data
+        assert b'id="reveal-votes"' in page.data
+        assert b'id="select-P-2"' in page.data
 
 
 def _token(page):

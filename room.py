@@ -1,3 +1,4 @@
+import secrets
 import time
 from collections import Counter
 from collections.abc import Iterable
@@ -49,6 +50,7 @@ class Room:
         self.revision = 0
         self.votes: dict[str, str] = {}
         self.revealed = False
+        self.suggestion: str | None = None
         self.loaded = False
         self.total: int | None = None
         self.truncated = False
@@ -128,6 +130,8 @@ class Room:
 
     def reveal(self, revision):
         self.check_round(revision)
+        if not self.revealed:
+            self.suggestion = suggest_size(self.votes.values())
         self.revealed = True
 
     def restart(self, revision):
@@ -159,9 +163,11 @@ class Room:
 
     def _open(self, key):
         self.current_key = key
-        self.revision += 1
+        # An old page can outlive a worker restart and keep its signed session.
+        self.revision = secrets.randbits(128)
         self.votes.clear()
         self.revealed = False
+        self.suggestion = None
 
     def _expire(self):
         cutoff = self.clock() - 30

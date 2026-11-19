@@ -17,7 +17,7 @@
       {% if not room.revealed %}
         {{ form_start('vote', true) }}
           <div class="cards" aria-label="Vote">
-          {% for size in cards %}<button name="size" value="{{ size }}"{% if size == '?' %} title="Can’t estimate"{% endif %}>{{ size }}</button>{% endfor %}
+          {% for size in cards %}<button id="vote-{{ 'unknown' if size == '?' else size }}" name="size" value="{{ size }}"{% if size == '?' %} title="Can’t estimate"{% endif %}>{{ size }}</button>{% endfor %}
           </div>
         </form>
       {% else %}
@@ -27,18 +27,18 @@
         <div class="controls">
           {% if room.revealed %}
             {{ form_start('save', true) }}
-              <label for="estimate-{{ room.revision }}-{{ suggestion }}">Final size</label>
-              <select id="estimate-{{ room.revision }}-{{ suggestion }}" name="size" hx-preserve required>
+              <label for="estimate-{{ room.revision }}">Final size</label>
+              <select id="estimate-{{ room.revision }}" name="size" hx-preserve required>
                 <option value="">Choose size</option>
                 {% for size in sizes %}<option value="{{ size }}"{% if size == suggestion %} selected{% endif %}>{{ size }} ({{ sizes[size] }} points)</option>{% endfor %}
               </select>
-              <button>Save to Jira</button>
+              <button id="save-estimate">Save to Jira</button>
             </form>
           {% else %}
-            {{ form_start('reveal', true) }}<button>Reveal votes</button></form>
+            {{ form_start('reveal', true) }}<button id="reveal-votes">Reveal votes</button></form>
           {% endif %}
-          {{ form_start('restart', true) }}<button>New round</button></form>
-          {{ form_start('skip', true) }}<button>Skip</button></form>
+          {{ form_start('restart', true) }}<button id="new-round">New round</button></form>
+          {{ form_start('skip', true) }}<button id="skip-ticket">Skip</button></form>
         </div>
       {% endif %}
     {% else %}
@@ -48,7 +48,7 @@
   </section>
   <section class="panel people" aria-label="Participants">
     <h2>Participants</h2>
-    {% if not room.facilitator %}{{ form_start('claim') }}<button>Facilitate</button></form>{% endif %}
+    {% if not room.facilitator %}{{ form_start('claim') }}<button id="facilitate">Facilitate</button></form>{% endif %}
     <ul class="people-list">
       {% for id, person in room.participants.items() %}
         <li>
@@ -57,7 +57,7 @@
             {% if room.revealed %}<strong data-revealed-vote>{{ room.votes[id] }}</strong>{% else %}<strong>Voted</strong>{% endif %}
           {% endif %}
           {% if facilitator and id != participant %}
-            {{ form_start('handoff') }}<button name="participant" value="{{ id }}">Hand off</button></form>
+            {{ form_start('handoff') }}<button id="handoff-{{ id }}" name="participant" value="{{ id }}">Hand off</button></form>
           {% endif %}
         </li>
       {% endfor %}
@@ -66,7 +66,7 @@
   <section class="panel queue" aria-label="Tickets">
     <h2>Tickets</h2>
     {% if facilitator %}
-      {{ form_start('refresh' if room.loaded else 'load') }}<button>{{ 'Refresh' if room.loaded else 'Load tickets' }}</button></form>
+      {{ form_start('refresh' if room.loaded else 'load') }}<button id="load-tickets">{{ 'Refresh' if room.loaded else 'Load tickets' }}</button></form>
     {% endif %}
     {% if room.loaded %}
       {% set options = room.epic_options() %}
@@ -77,7 +77,7 @@
           <select name="epic" id="{{ picker }}" hx-preserve>
             {% for key, (label, count) in options.items() %}<option value="{{ key }}"{% if key == room.epic_filter %} selected{% endif %}>{{ label }} ({{ count }} pending)</option>{% endfor %}
           </select>
-          <button>Apply</button>
+          <button id="apply-filter">Apply</button>
         </form>
       {% else %}
         <p>Epic: {{ options[room.epic_filter][0] }}</p>
@@ -92,7 +92,7 @@
             </div>
             {% if state != 'pending' %}<span>{{ state | capitalize }}</span>
             {% elif item.key == room.current_key %}<span>Current</span>
-            {% elif facilitator %}{{ form_start('select') }}<button name="key" value="{{ item.key }}">Select</button></form>{% endif %}
+            {% elif facilitator %}{{ form_start('select') }}<button id="select-{{ item.key }}" name="key" value="{{ item.key }}">Select</button></form>{% endif %}
           </li>
         {% else %}<li>No matching tickets.</li>{% endfor %}
       </ul>

@@ -79,7 +79,13 @@ juju deploy ./grooming-poker_amd64.charm grooming-poker \
 Keep **one unit** and **one Gunicorn worker** (`webserver-workers=1`); extra
 processes or units would create separate rooms. `webserver-threads=8` allows
 concurrent polling. Put the app behind HTTPS ingress and leave
-`flask-session-cookie-secure=true`. The charm creates its own Flask signing key;
+`flask-session-cookie-secure=true`. For a path-stripping ingress or to rate-limit
+by original client IP, set `trusted-proxy-network` (locally `FLASK_TRUSTED_PROXY_NETWORK`)
+to the immediate ingress proxy’s address or dedicated subnet in CIDR notation.
+Use only a range reserved for trusted ingress proxies, not the general pod
+network. The ingress must set the rightmost `X-Forwarded-For`,
+`X-Forwarded-Proto`, and (for a path mount) `X-Forwarded-Prefix`. The app ignores
+these headers from outside the configured range. The charm creates its own Flask signing key;
 `juju run grooming-poker/0 rotate-secret-key` invalidates existing cookies.
 
 ### Set and rotate credentials

@@ -1,14 +1,17 @@
 import hmac
+import os
 import secrets
 import time
 from collections import deque
+from ipaddress import ip_address, ip_network
 from threading import Lock
 
 from flask import Flask, abort, flash, redirect, render_template, request, session, url_for
 from flask_wtf.csrf import CSRFProtect
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from jira import JiraClient, JiraError
-from room import CARDS, SIZE_POINTS, Room, suggest_size
+from room import CARDS, SIZE_POINTS, Room
 
 
 def create_app(config=None, *, jira=None):
@@ -20,8 +23,14 @@ def create_app(config=None, *, jira=None):
         JIRA_JQL='labels = grooming ORDER BY priority DESC, Rank ASC',
     )
     app.config.from_prefixed_env()
+    # Opaque keys and passwords can look like JSON and must remain exact strings.
+    for key in ('APP_PASSWORD_VALUE', 'JIRA_API_TOKEN_VALUE', 'SECRET_KEY'):
+        if f'FLASK_{key}' in os.environ:
+            app.config[key] = os.environ[f'FLASK_{key}']
     if config:
         app.config.update(config)
+    if trusted_proxy := app.config.get('TRUSTED_PROXY_NETWORK'):
+        app.wsgi_app = _trust_proxy(app.wsgi_app, trusted_proxy)
     if jira is None:
         jira = JiraClient(*(str(app.config[key]) for key in (
             'JIRA_API_URL', 'JIRA_SITE_URL', 'JIRA_EMAIL', 'JIRA_API_TOKEN_VALUE',
@@ -186,7 +195,7 @@ def create_app(config=None, *, jira=None):
         return render_template(
             '_state.html' if partial else 'room.html', room=room, participant=participant,
             facilitator=facilitator, ticket=room.tickets.get(room.current_key), cards=CARDS,
-            sizes=SIZE_POINTS, suggestion=suggest_size(room.votes.values()) if room.revealed else None,
+            sizes=SIZE_POINTS, suggestion=room.suggestion,
             error=error or (jira_error if facilitator else None), busy=busy,
         )
 
@@ -198,6 +207,20 @@ def _redirect(endpoint):
     if request.headers.get('HX-Request') == 'true':
         return '', 200, {'HX-Redirect': location}
     return redirect(location, code=303 if request.method == 'POST' else 302)
+
+
+def _trust_proxy(app, network):
+    trusted = ip_network(network)
+    forwarded = ProxyFix(app, x_for=1, x_proto=1, x_prefix=1)
+
+    def dispatch(environ, start_response):
+        try:
+            from_proxy = ip_address(environ.get('REMOTE_ADDR') or '') in trusted
+        except ValueError:
+            from_proxy = False
+        return (forwarded if from_proxy else app)(environ, start_response)
+
+    return dispatch
 
 
 app = create_app()

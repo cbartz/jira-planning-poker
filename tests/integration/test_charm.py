@@ -119,7 +119,8 @@ def deployed(artifacts, tmp_path, *, password, sandbox=None, jql=None):
         with socket.socket() as sock:
             sock.bind(('127.0.0.1', 0))
             port = sock.getsockname()[1]
-        with forward(juju.model, f'statefulset/{APP}', port, 8000):
+        namespace = juju.model.rsplit(':', 1)[-1]
+        with forward(namespace, f'statefulset/{APP}', port, 8000):
             yield juju, f'http://127.0.0.1:{port}'
 
 

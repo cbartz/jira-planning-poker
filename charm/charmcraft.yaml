@@ -102,3 +102,6 @@ config:
     app-password:
       type: secret
       description: Juju user secret with the shared password in the value key.
+    trusted-proxy-network:
+      type: string
+      description: Optional CIDR containing only the HTTPS ingress proxy's source addresses.
