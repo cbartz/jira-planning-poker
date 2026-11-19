@@ -12,8 +12,8 @@ parts:
     plugin: charm
     source: .
     charm-binary-python-packages:
-      - jsonschema>=4.26,<4.27
-      - pydantic>=2.11,<3
+      - paas-charm>=1.12.3,<2
+      - email-validator>=2
     build-snaps: [rustup]
     override-build: |
       rustup default stable

@@ -55,13 +55,15 @@ def artifacts(packed):
         subprocess.run([*KUBECTL, 'delete', 'namespace', namespace, '--wait=false'], check=True)
 
 
-def test_charm_login_and_rotation(artifacts, tmp_path):
+def test_charm_login_and_rotation(artifacts):
     password, new_password = secrets.token_urlsafe(24), secrets.token_urlsafe(24)
-    with deployed(artifacts, tmp_path, password=password) as (juju, base):
+    with deployed(artifacts, password=password) as (juju, base):
         with requests.Session() as client:
             assert _login(client, base, 'wrong').status_code == 401
-            assert _login(client, base, password).headers['Location'] == '/name'
-        _set_secret(juju, tmp_path, 'app-password', new_password, update=True)
+            login = _login(client, base, password)
+            assert login.status_code == 303
+            assert login.headers['Location'] == '/name'
+        _set_secret(juju, 'app-password', new_password, update=True)
 
         def new_login_works():
             with requests.Session() as client:
@@ -76,10 +78,10 @@ def test_charm_login_and_rotation(artifacts, tmp_path):
         juju.wait(lambda status: jubilant.all_active(status, APP))
 
 
-def test_deployed_grooming_round(sandbox, issue, artifacts, tmp_path):
+def test_deployed_grooming_round(sandbox, issue, artifacts):
     password = secrets.token_urlsafe(24)
     jql = f'key = "{issue}" AND labels = grooming ORDER BY priority DESC, Rank ASC'
-    with deployed(artifacts, tmp_path, password=password, sandbox=sandbox, jql=jql) as (_, base):
+    with deployed(artifacts, password=password, sandbox=sandbox, jql=jql) as (_, base):
         with requests.Session() as client:
             assert _login(client, base, password).headers['Location'] == '/name'
             assert _post(client, base, '/name', name='Facilitator').headers['Location'] == '/'
@@ -102,7 +104,7 @@ def test_deployed_grooming_round(sandbox, issue, artifacts, tmp_path):
 
 
 @contextmanager
-def deployed(artifacts, tmp_path, *, password, sandbox=None, jql=None):
+def deployed(artifacts, *, password, sandbox=None, jql=None):
     charm, image = artifacts
     with jubilant.temp_model(controller=CONTROLLER, cloud='microk8s/localhost') as juju:
         config = {
@@ -116,7 +118,7 @@ def deployed(artifacts, tmp_path, *, password, sandbox=None, jql=None):
         juju.deploy(charm, APP, resources={'flask-app-image': image}, config=config)
         for secret_name, value in [('app-password', password),
                                    ('jira-api-token', sandbox.token if sandbox else 'unused')]:
-            uri = _set_secret(juju, tmp_path, secret_name, value)
+            uri = _set_secret(juju, secret_name, value)
             juju.grant_secret(uri, APP)
             juju.config(APP, {secret_name: uri})
         juju.wait(lambda status: jubilant.all_active(status, APP), timeout=300)
@@ -146,15 +148,9 @@ def forward(namespace, target, local, remote):
                 process.terminate()
 
 
-def _set_secret(juju, directory, name, value, *, update=False):
-    path = directory / name
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(descriptor, 'w') as stream:
-        stream.write(value)
-    try:
-        return juju.cli('update-secret' if update else 'add-secret', name, f'value#file={path}').strip()
-    finally:
-        path.unlink()
+def _set_secret(juju, name, value, *, update=False):
+    return juju.cli('update-secret' if update else 'add-secret', name, 'value#file=/dev/stdin',
+                    stdin=value).strip()
 
 
 def _post(client, base, path, *, token=None, **data):
