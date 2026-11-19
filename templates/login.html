@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block content %}
+<form method="post" class="panel entry">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label for="password">Shared password</label>
+  <input type="password" name="password" id="password" autocomplete="current-password" required autofocus>
+  <button>Log in</button>
+</form>
+{% endblock %}

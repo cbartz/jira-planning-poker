@@ -1,0 +1,101 @@
+{% macro form_start(action, round_action=False) %}
+{% set url = url_for('change_room', action=action) %}
+<form method="post" action="{{ url }}" hx-post="{{ url }}" hx-target="#room" hx-sync="#room:drop">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% if round_action %}<input type="hidden" name="revision" value="{{ room.revision }}">{% endif %}
+{% endmacro %}
+<div class="room-state" data-revision="{{ room.revision }}" data-current="{{ ticket.key if ticket else '' }}">
+  {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+  {% if busy %}<p role="status">Contacting Jira…</p>{% endif %}
+  <section class="panel round" aria-label="Current round">
+    {% if ticket %}
+      <h2><a href="{{ ticket.url }}">{{ ticket.key }}</a> {{ ticket.summary }}</h2>
+      <p class="muted">{{ [ticket.issue_type, ticket.status, ticket.priority] | select | join(' · ') }}
+      {% if ticket.points is not none %} · Existing estimate: {{ ticket.points }} points{% endif %}</p>
+      {% if ticket.labels %}<p class="muted">Labels: {{ ticket.labels | join(', ') }}</p>{% endif %}
+      {% if ticket.description %}<p class="description">{{ ticket.description }}</p>{% endif %}
+      {% if not room.revealed %}
+        {{ form_start('vote', true) }}
+          <div class="cards" aria-label="Vote">
+          {% for size in cards %}<button id="vote-{{ 'unknown' if size == '?' else size }}" name="size" value="{{ size }}"{% if size == '?' %} title="Can’t estimate"{% endif %}>{{ size }}</button>{% endfor %}
+          </div>
+        </form>
+      {% else %}
+        <p><strong>{% if suggestion %}Most common: {{ suggestion }}{% else %}No size suggested{% endif %}</strong></p>
+      {% endif %}
+      {% if facilitator %}
+        <div class="controls">
+          {% if room.revealed %}
+            {{ form_start('save', true) }}
+              <label for="estimate-{{ room.revision }}">Final size</label>
+              <select id="estimate-{{ room.revision }}" name="size" hx-preserve required>
+                <option value="">Choose size</option>
+                {% for size in sizes %}<option value="{{ size }}"{% if size == suggestion %} selected{% endif %}>{{ size }} ({{ sizes[size] }} points)</option>{% endfor %}
+              </select>
+              <button id="save-estimate">Save to Jira</button>
+            </form>
+          {% else %}
+            {{ form_start('reveal', true) }}<button id="reveal-votes">Reveal votes</button></form>
+          {% endif %}
+          {{ form_start('restart', true) }}<button id="new-round">New round</button></form>
+          {{ form_start('skip', true) }}<button id="skip-ticket">Skip</button></form>
+        </div>
+      {% endif %}
+    {% else %}
+      <h2>No ticket selected</h2>
+      <p>Pick a pending ticket to start a round.</p>
+    {% endif %}
+  </section>
+  <section class="panel people" aria-label="Participants">
+    <h2>Participants</h2>
+    {% if not room.facilitator %}{{ form_start('claim') }}<button id="facilitate">Facilitate</button></form>{% endif %}
+    <ul class="people-list">
+      {% for id, person in room.participants.items() %}
+        <li>
+          <span>{{ person.name }}{% if id == participant %} (you){% endif %}{% if id == room.facilitator %} · facilitator{% endif %}</span>
+          {% if id in room.votes %}
+            {% if room.revealed %}<strong data-revealed-vote>{{ room.votes[id] }}</strong>{% else %}<strong>Voted</strong>{% endif %}
+          {% endif %}
+          {% if facilitator and id != participant %}
+            {{ form_start('handoff') }}<button id="handoff-{{ id }}" name="participant" value="{{ id }}">Hand off</button></form>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+  <section class="panel queue" aria-label="Tickets">
+    <h2>Tickets</h2>
+    {% if facilitator %}
+      {{ form_start('refresh' if room.loaded else 'load') }}<button id="load-tickets">{{ 'Refresh' if room.loaded else 'Load tickets' }}</button></form>
+    {% endif %}
+    {% if room.loaded %}
+      {% set options = room.epic_options() %}
+      {% if facilitator %}
+        {{ form_start('filter') }}
+          {% set picker = 'filter-' ~ room.epic_filter ~ '-' ~ room.queue_revision %}
+          <label for="{{ picker }}">Epic</label>
+          <select name="epic" id="{{ picker }}" hx-preserve>
+            {% for key, (label, count) in options.items() %}<option value="{{ key }}"{% if key == room.epic_filter %} selected{% endif %}>{{ label }} ({{ count }} pending)</option>{% endfor %}
+          </select>
+          <button id="apply-filter">Apply</button>
+        </form>
+      {% else %}
+        <p>Epic: {{ options[room.epic_filter][0] }}</p>
+      {% endif %}
+      {% if room.truncated %}<p>Showing 200{% if room.total %} of about {{ room.total }}{% else %}; more tickets match{% endif %}.</p>{% endif %}
+      <ul class="ticket-list">
+        {% for item in room.visible_tickets() %}
+          {% set state = room.statuses[item.key] %}
+          <li>
+            <div><a href="{{ item.url }}">{{ item.key }}</a> {{ item.summary }}
+              <small>{{ [item.issue_type, item.status, item.priority] | select | join(' · ') }}</small>
+            </div>
+            {% if state != 'pending' %}<span>{{ state | capitalize }}</span>
+            {% elif item.key == room.current_key %}<span>Current</span>
+            {% elif facilitator %}{{ form_start('select') }}<button id="select-{{ item.key }}" name="key" value="{{ item.key }}">Select</button></form>{% endif %}
+          </li>
+        {% else %}<li>No matching tickets.</li>{% endfor %}
+      </ul>
+    {% endif %}
+  </section>
+</div>

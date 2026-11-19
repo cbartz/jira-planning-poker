@@ -1,0 +1,19 @@
+:root { color-scheme: light dark; font: 1rem/1.5 system-ui, sans-serif; }
+body { margin: 0; background: light-dark(#eff3f9, #131925); color: light-dark(#182338, #e1e9f8); }
+main { max-width: 72rem; margin: auto; padding: 1.25rem; }
+h1, h2 { line-height: 1.2; margin-block: 0 1rem; }
+.room-state { display: grid; gap: 1rem; grid-template-columns: minmax(0, 2fr) minmax(15rem, 1fr); align-items: start; }
+.room-state > p, .queue { grid-column: 1 / -1; }
+.panel { background: light-dark(white, #222b3a); border-radius: .75rem; padding: 1.25rem; }
+.entry { display: grid; gap: .75rem; max-width: 24rem; }
+button, select, input { font: inherit; border: 1px solid light-dark(#8493aa, #8291a7); border-radius: .4rem; padding: .35rem .65rem; max-width: 100%; }
+button { cursor: pointer; background: light-dark(#e2edff, #2e4162); color: inherit; }
+.controls, .cards { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+.cards button { min-width: 3rem; min-height: 3.5rem; font-weight: bold; }
+.description { white-space: pre-wrap; overflow-wrap: anywhere; }
+.muted, small { color: light-dark(#485a72, #b3c2d9); }
+small { display: block; }
+.people-list, .ticket-list { padding: 0; list-style: none; }
+.people-list li, .ticket-list li { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .6rem 0; border-top: 1px solid light-dark(#dce3ee, #435068); overflow-wrap: anywhere; }
+[role="alert"] { color: light-dark(#9e241a, #ffaaa1); }
+@media (max-width: 44rem) { .room-state { grid-template-columns: minmax(0, 1fr); } }

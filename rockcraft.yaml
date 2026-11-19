@@ -1,0 +1,18 @@
+name: jira-planning-poker
+base: bare
+build-base: ubuntu@24.04
+version: '0.1.0'
+summary: Estimate Jira backlog tickets together
+description: A shared room for T-shirt sizing and saving story points to Jira.
+platforms:
+  amd64:
+extensions:
+  - flask-framework
+parts:
+  flask-framework/install-app:
+    prime:
+      - flask/app/app.py
+      - flask/app/jira.py
+      - flask/app/room.py
+      - flask/app/templates
+      - flask/app/static

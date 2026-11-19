@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block content %}
+<form method="post" class="panel entry">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label for="name">Your name</label>
+  <input name="name" id="name" maxlength="32" value="{{ session.get('name', '') }}" required autofocus>
+  <button>Join room</button>
+</form>
+{% endblock %}

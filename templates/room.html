@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block content %}
+<div id="room" hx-get="{{ url_for('state') }}" hx-trigger="every 1s" hx-sync="#room:abort">
+  {% include '_state.html' %}
+</div>
+{% endblock %}
