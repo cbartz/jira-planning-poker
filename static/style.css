@@ -3,7 +3,7 @@ body { margin: 0; background: light-dark(#eff3f9, #131925); color: light-dark(#1
 main { max-width: 72rem; margin: auto; padding: 1.25rem; }
 h1, h2 { line-height: 1.2; margin-block: 0 1rem; }
 .room-state { display: grid; gap: 1rem; grid-template-columns: minmax(0, 2fr) minmax(15rem, 1fr); align-items: start; }
-.room-state > p, .queue { grid-column: 1 / -1; }
+#room-notices, .queue { grid-column: 1 / -1; }
 .panel { background: light-dark(white, #222b3a); border-radius: .75rem; padding: 1.25rem; }
 .entry { display: grid; gap: .75rem; max-width: 24rem; }
 button, select, input { font: inherit; border: 1px solid light-dark(#8493aa, #8291a7); border-radius: .4rem; padding: .35rem .65rem; max-width: 100%; }

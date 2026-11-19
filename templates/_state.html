@@ -1,13 +1,16 @@
+{% macro swap_region() %}{% if partial %} hx-swap-oob="true"{% endif %}{% endmacro %}
 {% macro form_start(action, round_action=False) %}
 {% set url = url_for('change_room', action=action) %}
 <form method="post" action="{{ url }}" hx-post="{{ url }}" hx-target="#room" hx-sync="#room:drop">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   {% if round_action %}<input type="hidden" name="revision" value="{{ room.revision }}">{% endif %}
 {% endmacro %}
-<div class="room-state" data-revision="{{ room.revision }}" data-current="{{ ticket.key if ticket else '' }}">
+<div id="room-notices"{{ swap_region() }}{% if not error and not busy %} hidden{% endif %}>
   {% if error %}<p role="alert">{{ error }}</p>{% endif %}
   {% if busy %}<p role="status">Contacting Jira…</p>{% endif %}
-  <section class="panel round" aria-label="Current round">
+</div>
+<section class="panel round" aria-label="Current round">
+  <div id="round-details" data-revision="{{ room.revision }}" data-current="{{ ticket.key if ticket else '' }}"{{ swap_region() }}>
     {% if ticket %}
       <h2><a href="{{ ticket.url }}">{{ ticket.key }}</a> {{ ticket.summary }}</h2>
       <p class="muted">{{ [ticket.issue_type, ticket.status, ticket.priority] | select | join(' · ') }}
@@ -23,30 +26,34 @@
       {% else %}
         <p><strong>{% if suggestion %}Most common: {{ suggestion }}{% else %}No size suggested{% endif %}</strong></p>
       {% endif %}
-      {% if facilitator %}
-        <div class="controls">
-          {% if room.revealed %}
-            {{ form_start('save', true) }}
-              <label for="estimate-{{ room.revision }}">Final size</label>
-              <select id="estimate-{{ room.revision }}" name="size" hx-preserve required>
-                <option value="">Choose size</option>
-                {% for size in sizes %}<option value="{{ size }}"{% if size == suggestion %} selected{% endif %}>{{ size }} ({{ sizes[size] }} points)</option>{% endfor %}
-              </select>
-              <button id="save-estimate">Save to Jira</button>
-            </form>
-          {% else %}
-            {{ form_start('reveal', true) }}<button id="reveal-votes">Reveal votes</button></form>
-          {% endif %}
-          {{ form_start('restart', true) }}<button id="new-round">New round</button></form>
-          {{ form_start('skip', true) }}<button id="skip-ticket">Skip</button></form>
-        </div>
-      {% endif %}
     {% else %}
       <h2>No ticket selected</h2>
       <p>Pick a pending ticket to start a round.</p>
     {% endif %}
-  </section>
-  <section class="panel people" aria-label="Participants">
+  </div>
+  {% if update_controls %}
+    <div id="round-controls"{% if controls_context %} class="controls"{% endif %}{{ swap_region() }}>
+      <input type="hidden" id="controls-context" name="controls_context" value="{{ controls_context }}">
+      {% if controls_context %}
+        {% if room.revealed %}
+          {{ form_start('save', true) }}
+            <label for="estimate-{{ room.revision }}">Final size</label>
+            <select id="estimate-{{ room.revision }}" name="size" required>
+              <option value="">Choose size</option>
+              {% for size in sizes %}<option value="{{ size }}"{% if size == suggestion %} selected{% endif %}>{{ size }} ({{ sizes[size] }} points)</option>{% endfor %}
+            </select>
+            <button id="save-estimate">Save to Jira</button>
+          </form>
+        {% else %}
+          {{ form_start('reveal', true) }}<button id="reveal-votes">Reveal votes</button></form>
+        {% endif %}
+        {{ form_start('restart', true) }}<button id="new-round">New round</button></form>
+        {{ form_start('skip', true) }}<button id="skip-ticket">Skip</button></form>
+      {% endif %}
+    </div>
+  {% endif %}
+</section>
+  <section id="room-people" class="panel people" aria-label="Participants"{{ swap_region() }}>
     <h2>Participants</h2>
     {% if not room.facilitator %}{{ form_start('claim') }}<button id="facilitate">Facilitate</button></form>{% endif %}
     <ul class="people-list">
@@ -63,7 +70,7 @@
       {% endfor %}
     </ul>
   </section>
-  <section class="panel queue" aria-label="Tickets">
+  <section id="room-queue" class="panel queue" aria-label="Tickets"{{ swap_region() }}>
     <h2>Tickets</h2>
     {% if facilitator %}
       {{ form_start('refresh' if room.loaded else 'load') }}<button id="load-tickets">{{ 'Refresh' if room.loaded else 'Load tickets' }}</button></form>
@@ -98,4 +105,3 @@
       </ul>
     {% endif %}
   </section>
-</div>

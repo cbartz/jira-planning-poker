@@ -182,6 +182,25 @@ def test_epic_picker_stays_open_across_polls(web):
     assert re.search(picker, _action(host, 'filter', epic='P-9').data)[1] != first
 
 
+def test_polls_leave_the_final_size_form_mounted_until_the_round_changes(web):
+    app, _ = web
+    host = _join(app, 'Host')
+    revision = _open_round(host)
+    context = re.search(rb'name="controls_context" value="([^"]+)"', host.get('/').data)
+    assert context is not None
+    context = context[1].decode()
+    poll = host.get('/room/state', query_string={'controls_context': context})
+    assert b'id="round-controls"' not in poll.data
+    assert b'id="room-people"' in poll.data
+    assert b'hx-swap-oob' in poll.data
+    refresh = _action(host, 'refresh', controls_context=context)
+    assert b'id="round-controls"' not in refresh.data
+    new_round = _action(host, 'restart', revision=revision, controls_context=context)
+    assert b'id="round-controls"' in new_round.data
+    assert b'id="reveal-votes"' in new_round.data
+    assert b'id="save-estimate"' not in new_round.data
+
+
 def test_stale_round_rejected_after_workload_restart(web):
     app, _ = web
     old_host = _join(app, 'Host')
@@ -210,7 +229,7 @@ def test_suggested_size_stays_stable_after_a_revealed_voter_drops(web, monkeypat
     _action(host, 'vote', size='M', revision=revision)
     _action(guest, 'vote', size='L', revision=revision)
     revealed = _action(host, 'reveal', revision=revision)
-    picker = rb'<select id="([^"]+)" name="size" hx-preserve'
+    picker = rb'<select id="([^"]+)" name="size"'
     now = 30
     host.get('/room/state')
     now = 31
