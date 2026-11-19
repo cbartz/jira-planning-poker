@@ -1,0 +1,104 @@
+# Expanded from the flask-framework profile: Charmcraft cannot override
+# extension options in place, and the worker and cookie defaults matter here.
+name: grooming-poker
+type: charm
+base: ubuntu@24.04
+platforms:
+  amd64:
+summary: Estimate Jira backlog tickets together
+description: A shared room for T-shirt sizing and saving story points to Jira.
+parts:
+  charm:
+    plugin: charm
+    source: .
+    build-snaps: [rustup]
+    override-build: |
+      rustup default stable
+      craftctl default
+charm-libs:
+  - {lib: traefik-k8s.ingress, version: '2'}
+  - {lib: observability-libs.juju_topology, version: '0'}
+  - {lib: grafana-k8s.grafana_dashboard, version: '0'}
+  - {lib: loki-k8s.loki_push_api, version: '1'}
+  - {lib: data-platform-libs.data_interfaces, version: '0'}
+  - {lib: prometheus-k8s.prometheus_scrape, version: '0'}
+  - {lib: data-platform-libs.s3, version: '0'}
+  - {lib: saml-integrator.saml, version: '0'}
+  - {lib: smtp-integrator.smtp, version: '0'}
+  - {lib: squid-forward-proxy.http_proxy, version: '0'}
+  - {lib: redis-k8s.redis, version: '0'}
+  - {lib: tempo-coordinator-k8s.tracing, version: '0'}
+  - {lib: openfga-k8s.openfga, version: '1'}
+  - {lib: hydra.oauth, version: '0'}
+actions:
+  rotate-secret-key:
+    description: Rotate the Flask signing key and log all users out.
+assumes: [k8s-api]
+containers:
+  flask-app:
+    resource: flask-app-image
+resources:
+  flask-app-image:
+    type: oci-image
+    description: Flask application image.
+peers:
+  secret-storage:
+    interface: secret-storage
+provides:
+  metrics-endpoint:
+    interface: prometheus_scrape
+  grafana-dashboard:
+    interface: grafana_dashboard
+requires:
+  logging:
+    interface: loki_push_api
+  ingress:
+    interface: ingress
+    limit: 1
+config:
+  options:
+    webserver-workers:
+      type: int
+      default: 1
+      description: Keep at one; room state is stored in the worker's memory.
+    webserver-threads:
+      type: int
+      default: 8
+      description: Gunicorn threads handling concurrent room polling and actions.
+    flask-session-cookie-secure:
+      type: boolean
+      default: true
+      description: Require HTTPS for the session cookie.
+    webserver-keepalive: {type: int, description: Gunicorn keepalive in seconds.}
+    webserver-timeout: {type: int, description: Gunicorn worker timeout in seconds.}
+    webserver-worker-class: {type: string, description: Gunicorn worker class.}
+    flask-application-root: {type: string, description: Application mount path.}
+    flask-debug: {type: boolean, description: Enable Flask debug mode.}
+    flask-env: {type: string, description: Flask environment name.}
+    flask-permanent-session-lifetime: {type: int, description: Session lifetime in seconds.}
+    flask-preferred-url-scheme: {type: string, default: HTTPS, description: Default external URL scheme.}
+    flask-secret-key: {type: string, description: Override the generated signing key.}
+    flask-secret-key-id: {type: secret, description: Signing key secret with a value key.}
+    jira-api-url:
+      type: string
+      description: Base URL for Jira REST API requests.
+    jira-site-url:
+      type: string
+      description: Jira site URL for browser links.
+    jira-email:
+      type: string
+      description: Jira API account email.
+    jira-api-token:
+      type: secret
+      description: Juju user secret with the Jira API token in the value key.
+    jira-story-points-field:
+      type: string
+      default: customfield_10024
+      description: Editable Jira story points field ID.
+    jira-jql:
+      type: string
+      default: labels = grooming ORDER BY priority DESC, Rank ASC
+      description: JQL used to load the grooming queue.
+    app-password:
+      type: secret
+      description: Juju user secret with the shared password in the value key.
