@@ -11,6 +11,9 @@ parts:
   charm:
     plugin: charm
     source: .
+    charm-binary-python-packages:
+      - jsonschema>=4.26,<4.27
+      - pydantic>=2.11,<3
     build-snaps: [rustup]
     override-build: |
       rustup default stable

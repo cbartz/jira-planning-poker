@@ -4,5 +4,7 @@
 __pycache__/
 .pytest_cache/
 .superpowers/
+.grooming-pack-*/
+/charm/lib/
 *.rock
 *.charm

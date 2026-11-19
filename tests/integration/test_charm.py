@@ -4,6 +4,7 @@ import socket
 import subprocess
 from contextlib import contextmanager
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from uuid import uuid4
 
 import jubilant
@@ -22,15 +23,18 @@ KUBECTL = ['microk8s', 'kubectl']
 
 
 @pytest.fixture(scope='module')
-def packed(tmp_path_factory):
+def packed():
     assert (ROOT / 'rockcraft.yaml').is_file(), 'Flask rock configuration is missing'
-    assert (ROOT / 'charm/charmcraft.yaml').is_file(), 'Flask charm configuration is missing'
-    output = tmp_path_factory.mktemp('packages')
-    subprocess.run(['rockcraft', 'pack', '--output', str(output)], cwd=ROOT, check=True)
-    subprocess.run(['charmcraft', 'pack', '--output', str(output)], cwd=ROOT / 'charm', check=True)
-    rock, = output.glob('*.rock')
-    charm, = output.glob('*.charm')
-    yield rock, charm
+    charm_root = ROOT / 'charm'
+    assert (charm_root / 'charmcraft.yaml').is_file(), 'Flask charm configuration is missing'
+    # Managed craft builds can only write artifacts to paths inside their project mounts.
+    with (TemporaryDirectory(prefix='.grooming-pack-', dir=ROOT) as rock_output,
+          TemporaryDirectory(prefix='.grooming-pack-', dir=charm_root) as charm_output):
+        subprocess.run(['rockcraft', 'pack', '--output', Path(rock_output).name], cwd=ROOT, check=True)
+        subprocess.run(['charmcraft', 'pack', '--output', Path(charm_output).name], cwd=charm_root, check=True)
+        rock, = Path(rock_output).glob('*.rock')
+        charm, = Path(charm_output).glob('*.charm')
+        yield rock, charm
 
 
 @pytest.fixture(scope='module')
