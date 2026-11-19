@@ -45,6 +45,7 @@ class Room:
         self.statuses: dict[str, str] = {}
         self.current_key: str | None = None
         self.epic_filter = 'all'
+        self.queue_revision = 0
         self.revision = 0
         self.votes: dict[str, str] = {}
         self.revealed = False
@@ -96,6 +97,7 @@ class Room:
         if self.epic_filter not in self.epic_options():
             self.epic_filter = 'all'
         self.loaded, self.total, self.truncated = True, total, truncated
+        self.queue_revision += 1
 
     def epic_options(self):
         counts = {'all': ('All', 0), 'none': ('No epic', 0)}
@@ -146,6 +148,7 @@ class Room:
         elif status != 'skipped':
             raise ValueError('Reveal votes and choose a final size first.')
         self.statuses[self.current_key] = status
+        self.queue_revision += 1
         next_key = next((ticket.key for ticket in self.visible_tickets()
                          if self.statuses[ticket.key] == 'pending'), None)
         self._open(next_key)
