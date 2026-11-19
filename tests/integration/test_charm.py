@@ -46,11 +46,15 @@ def artifacts(packed):
     try:
         kubectl = [*KUBECTL, '-n', namespace]
         subprocess.run([*kubectl, 'create', 'deployment', 'registry', '--image=registry:2'], check=True)
+        subprocess.run([*kubectl, 'create', 'service', 'nodeport', 'registry', '--tcp=5000:5000',
+                        '--node-port=32000'], check=True)
         subprocess.run([*kubectl, 'rollout', 'status', 'deployment/registry', '--timeout=120s'], check=True)
-        with forward(namespace, 'deployment/registry', 32000, 5000):
-            subprocess.run(['skopeo', 'copy', '--insecure-policy', '--dest-tls-verify=false',
-                            f'oci-archive:{rock}', f'docker://{image}'], check=True)
-            yield charm, image
+        with requests.Session() as client:
+            client.trust_env = False
+            assert eventually(lambda: registry_ready(client), timeout=30), 'Registry API did not become ready'
+        subprocess.run(['skopeo', 'copy', '--insecure-policy', '--dest-tls-verify=false',
+                        f'oci-archive:{rock}', f'docker://{image}'], check=True)
+        yield charm, image
     finally:
         subprocess.run([*KUBECTL, 'delete', 'namespace', namespace, '--wait=false'], check=True)
 
@@ -151,6 +155,13 @@ def forward(namespace, target, local, remote):
 def _set_secret(juju, name, value, *, update=False):
     return juju.cli('update-secret' if update else 'add-secret', name, 'value#file=/dev/stdin',
                     stdin=value).strip()
+
+
+def registry_ready(client):
+    try:
+        return client.get('http://127.0.0.1:32000/v2/', timeout=2).status_code == 200
+    except requests.RequestException:
+        return False
 
 
 def _post(client, base, path, *, token=None, **data):

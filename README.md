@@ -129,7 +129,7 @@ for Jira search indexing and delete the test issue in fixture cleanup.
 
 The opt-in Juju tests require `ai-dev-controller` on `microk8s/localhost`,
 working Rockcraft/Charmcraft build providers, `microk8s kubectl`, Skopeo, and
-host port 32000 available. They pack both artifacts, push the image to a
-temporary registry, and deploy to disposable models. The password rotation
+NodePort 32000 available on a non-production cluster. They pack both artifacts,
+push the image to a temporary registry, and deploy to disposable models. The password rotation
 test does not require Jira credentials. The deployed grooming round requires
 the same sandbox variables and permissions as the standalone Jira test.
