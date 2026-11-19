@@ -1,4 +1,4 @@
-name: grooming-poker
+name: jira-planning-poker
 base: bare
 build-base: ubuntu@24.04
 version: '0.1.0'

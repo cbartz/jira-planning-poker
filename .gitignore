@@ -5,6 +5,7 @@ __pycache__/
 .pytest_cache/
 .superpowers/
 .grooming-pack-*/
+.jira-planning-poker-pack-*/
 /charm/lib/
 *.rock
 *.charm

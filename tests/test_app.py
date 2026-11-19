@@ -45,6 +45,13 @@ def test_login_and_rate_limit(web):
     assert client.post('/login', data={'password': 'shared', 'csrf_token': token}).status_code == 429
 
 
+def test_login_identifies_jira_planning_poker(web):
+    app, _ = web
+    page = app.test_client().get('/login')
+    assert b'<title>Jira Planning Poker</title>' in page.data
+    assert b'<h1>Jira Planning Poker</h1>' in page.data
+
+
 def test_csrf_and_headers(web):
     app, _ = web
     client = app.test_client()
@@ -186,14 +193,14 @@ def test_only_trusted_ingress_can_forward_client_and_prefix(web):
                       'TRUSTED_PROXY_NETWORK': '192.0.2.1/32'}, jira=web[1])
     client = app.test_client()
     forwarded = {'X-Forwarded-For': '203.0.113.1', 'X-Forwarded-Proto': 'https',
-                 'X-Forwarded-Prefix': '/grooming-poker'}
+                 'X-Forwarded-Prefix': '/jira-planning-poker'}
     proxy = {'REMOTE_ADDR': '192.0.2.1'}
     direct = {'REMOTE_ADDR': '192.0.2.2'}
-    assert client.get('/', headers=forwarded, environ_overrides=proxy).location == '/grooming-poker/login'
+    assert client.get('/', headers=forwarded, environ_overrides=proxy).location == '/jira-planning-poker/login'
     assert client.get('/', headers=forwarded, environ_overrides=direct).location == '/login'
     proxied_login = client.get('/login', headers=forwarded, environ_overrides=proxy)
-    assert b'/grooming-poker/static/htmx.min.js' in proxied_login.data
-    forwarded['Referer'] = 'https://localhost/grooming-poker/login'
+    assert b'/jira-planning-poker/static/htmx.min.js' in proxied_login.data
+    forwarded['Referer'] = 'https://localhost/jira-planning-poker/login'
     form = {'password': 'wrong', 'csrf_token': _token(proxied_login)}
     for _ in range(5):
         assert client.post('/login', data=form, headers=forwarded, environ_overrides=proxy).status_code == 401

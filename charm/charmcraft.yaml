@@ -1,6 +1,6 @@
 # Expanded from the flask-framework profile: Charmcraft cannot override
 # extension options in place, and the worker and cookie defaults matter here.
-name: grooming-poker
+name: jira-planning-poker
 type: charm
 base: ubuntu@24.04
 platforms:

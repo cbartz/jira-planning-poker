@@ -1,4 +1,4 @@
-# Grooming Poker
+# Jira Planning Poker
 
 Run a backlog grooming session and save T-shirt estimates directly to Jira. One
 participant clicks **Facilitate**, selects a ticket, and reveals the votes. Save
@@ -68,10 +68,10 @@ Kubernetes nodes before deploying the charm:
 
 ```bash
 rockcraft pack
-skopeo copy oci-archive:grooming-poker_0.1.0_amd64.rock docker://REGISTRY/grooming-poker:0.1.0
+skopeo copy oci-archive:jira-planning-poker_0.1.0_amd64.rock docker://REGISTRY/jira-planning-poker:0.1.0
 charmcraft pack --project-dir charm
-juju deploy ./grooming-poker_amd64.charm grooming-poker \
-  --resource flask-app-image=REGISTRY/grooming-poker:0.1.0 \
+juju deploy ./jira-planning-poker_amd64.charm jira-planning-poker \
+  --resource flask-app-image=REGISTRY/jira-planning-poker:0.1.0 \
   --config jira-api-url="$API_URL" --config jira-site-url="$SITE_URL" \
   --config jira-email="$EMAIL" --config jira-story-points-field=customfield_10024
 ```
@@ -86,7 +86,7 @@ Use only a range reserved for trusted ingress proxies, not the general pod
 network. The ingress must set the rightmost `X-Forwarded-For`,
 `X-Forwarded-Proto`, and (for a path mount) `X-Forwarded-Prefix`. The app ignores
 these headers from outside the configured range. The charm creates its own Flask signing key;
-`juju run grooming-poker/0 rotate-secret-key` invalidates existing cookies.
+`juju run jira-planning-poker/0 rotate-secret-key` invalidates existing cookies.
 
 ### Set and rotate credentials
 
@@ -94,18 +94,18 @@ The operator owns both Juju user secrets. Save the IDs returned by `add-secret`
 and substitute them below:
 
 ```bash
-juju add-secret grooming-password value="$(openssl rand -base64 18)"
-juju grant-secret grooming-password grooming-poker
-juju config grooming-poker app-password=secret:<password-id>
+juju add-secret jira-planning-poker-password value="$(openssl rand -base64 18)"
+juju grant-secret jira-planning-poker-password jira-planning-poker
+juju config jira-planning-poker app-password=secret:<password-id>
 
 juju add-secret jira-token value="$TOKEN"
-juju grant-secret jira-token grooming-poker
-juju config grooming-poker jira-api-token=secret:<token-id>
-juju status grooming-poker
+juju grant-secret jira-token jira-planning-poker
+juju config jira-planning-poker jira-api-token=secret:<token-id>
+juju status jira-planning-poker
 
 # Reveal only in a private terminal.
-juju show-secret grooming-password --reveal
-juju update-secret grooming-password value="$(openssl rand -base64 18)"
+juju show-secret jira-planning-poker-password --reveal
+juju update-secret jira-planning-poker-password value="$(openssl rand -base64 18)"
 # Create a replacement token in Atlassian first, then set NEW_TOKEN securely.
 juju update-secret jira-token value="$NEW_TOKEN"
 ```
@@ -118,7 +118,7 @@ token once the replacement works.
 ```bash
 python -m pytest -q tests/test_room.py tests/test_jira.py tests/test_app.py
 python -m pytest -q tests/integration/test_sandbox.py
-GROOMING_JUJU_TESTS=1 python -m pytest -q -s tests/integration/test_charm.py
+JIRA_PLANNING_POKER_JUJU_TESTS=1 python -m pytest -q -s tests/integration/test_charm.py
 ```
 
 Live Jira tests require `JIRA_SANDBOX_API_URL`, `JIRA_SANDBOX_SITE_URL`,

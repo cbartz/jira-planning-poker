@@ -48,7 +48,7 @@ def sandbox():
 def issue(sandbox):
     result = sandbox.request('POST', '/issue', json={'fields': {
         'project': {'key': sandbox.project}, 'issuetype': {'name': 'Story'},
-        'summary': f'Grooming Poker throwaway {uuid4().hex}', 'labels': ['grooming', 'S', 'test-keep'],
+        'summary': f'Jira Planning Poker throwaway {uuid4().hex}', 'labels': ['grooming', 'S', 'test-keep'],
     }})
     key = result['key']
     try:

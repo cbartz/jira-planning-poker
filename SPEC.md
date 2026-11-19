@@ -1,4 +1,4 @@
-# Grooming Poker — spec
+# Jira Planning Poker — spec
 
 A small internal web app for backlog grooming: the team estimates Jira tickets
 labelled `grooming` with T-shirt sizes, and the facilitator writes the result
@@ -159,7 +159,8 @@ Verified against paas-charm `main` (2026-11-16). Flask prefixes options with
 - **Built-in options to use:** `flask-session-cookie-secure=true`,
   `webserver-workers=1`, `webserver-threads=8`.
 - **Secret changes:** the charm reconciles on `secret-changed`. Updating a Juju user
-  secret restarts the app with the new value, so the charm needs no custom code.
+  secret restarts the app with the new value, without any custom Juju action. The
+  charm explicitly maps `app-password` because PaaS reserves `app-` option names.
 
 ### Credential operations (document in README, no custom charm actions)
 
@@ -168,15 +169,15 @@ Viewing and rotating them uses plain `juju` commands:
 
 ```bash
 # one-time setup
-juju add-secret grooming-password value="$(openssl rand -base64 18)"
-juju grant-secret grooming-password grooming-poker
-juju config grooming-poker app-password=secret:<id>
+juju add-secret jira-planning-poker-password value="$(openssl rand -base64 18)"
+juju grant-secret jira-planning-poker-password jira-planning-poker
+juju config jira-planning-poker app-password=secret:<id>
 
 # print the current password
-juju show-secret grooming-password --reveal
+juju show-secret jira-planning-poker-password --reveal
 
 # rotate the password (the app restarts and picks it up)
-juju update-secret grooming-password value="$(openssl rand -base64 18)"
+juju update-secret jira-planning-poker-password value="$(openssl rand -base64 18)"
 
 # rotate the Jira token (create the new token in Atlassian first)
 juju update-secret jira-token value=<new token>

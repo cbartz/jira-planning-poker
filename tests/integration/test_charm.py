@@ -14,10 +14,10 @@ from bs4 import BeautifulSoup
 
 from conftest import eventually
 
-pytestmark = pytest.mark.skipif(os.getenv('GROOMING_JUJU_TESTS') != '1',
-                                reason='Set GROOMING_JUJU_TESTS=1 to pack and deploy to MicroK8s')
+pytestmark = pytest.mark.skipif(os.getenv('JIRA_PLANNING_POKER_JUJU_TESTS') != '1',
+                                reason='Set JIRA_PLANNING_POKER_JUJU_TESTS=1 to deploy to MicroK8s')
 ROOT = Path(__file__).resolve().parents[2]
-APP = 'grooming-poker'
+APP = 'jira-planning-poker'
 CONTROLLER = 'ai-dev-controller'
 KUBECTL = ['microk8s', 'kubectl']
 
@@ -28,8 +28,8 @@ def packed():
     charm_root = ROOT / 'charm'
     assert (charm_root / 'charmcraft.yaml').is_file(), 'Flask charm configuration is missing'
     # Managed craft builds can only write artifacts to paths inside their project mounts.
-    with (TemporaryDirectory(prefix='.grooming-pack-', dir=ROOT) as rock_output,
-          TemporaryDirectory(prefix='.grooming-pack-', dir=charm_root) as charm_output):
+    with (TemporaryDirectory(prefix=f'.{APP}-pack-', dir=ROOT) as rock_output,
+          TemporaryDirectory(prefix=f'.{APP}-pack-', dir=charm_root) as charm_output):
         subprocess.run(['rockcraft', 'pack', '--output', Path(rock_output).name], cwd=ROOT, check=True)
         subprocess.run(['charmcraft', 'pack', '--output', Path(charm_output).name], cwd=charm_root, check=True)
         rock, = Path(rock_output).glob('*.rock')

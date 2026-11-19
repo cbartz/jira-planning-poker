@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"includeIndicatorStyles":false}'>
-  <title>Grooming Poker</title>
+  <title>Jira Planning Poker</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <script defer src="{{ url_for('static', filename='htmx.min.js') }}"></script>
 </head>
 <body hx-headers='{{ {"X-CSRFToken": csrf_token()} | tojson }}'>
   <main>
-    <header><h1>Grooming Poker</h1></header>
+    <header><h1>Jira Planning Poker</h1></header>
     {% for message in get_flashed_messages() %}<p role="alert">{{ message }}</p>{% endfor %}
     {% if error and request.endpoint in ('login', 'name') %}<p role="alert">{{ error }}</p>{% endif %}
     {% block content %}{% endblock %}
