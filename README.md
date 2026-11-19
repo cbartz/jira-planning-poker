@@ -1,10 +1,11 @@
 # Jira Planning Poker
 
 Run a backlog grooming session and save T-shirt estimates directly to Jira. One
-participant clicks **Facilitate**, selects a ticket, and reveals the votes. Save
-updates story points and size labels and removes `grooming` in one Jira request.
-`?` means “can’t estimate” and is not saved. Room state is ephemeral; saved
-estimates live in Jira.
+participant clicks **Facilitate** to select tickets, reveal votes, and save
+estimates. Only the facilitator can save. Saving updates story points and size
+labels and removes `grooming` in one Jira request. `?` means “can’t estimate”
+and is not saved. The single shared room lives in memory; saved estimates live
+in Jira.
 
 ## Jira setup
 
