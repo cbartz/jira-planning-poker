@@ -200,11 +200,15 @@ def create_app(config=None, *, jira=None):
     def render_room(*, partial, error=None):
         participant = session['participant_id']
         facilitator = room.facilitator == participant
+        # A detached native picker can lose its open menu even with hx-preserve.
+        controls_context = f'{room.revision}:{room.revealed}' if facilitator and room.current_key else ''
         return render_template(
             '_state.html' if partial else 'room.html', room=room, participant=participant,
             facilitator=facilitator, ticket=room.tickets.get(room.current_key), cards=CARDS,
             sizes=SIZE_POINTS, suggestion=room.suggestion,
             error=error or (jira_error if facilitator else None), busy=room.jira_operator is not None,
+            partial=partial, controls_context=controls_context,
+            update_controls=not partial or controls_context != request.values.get('controls_context'),
         )
 
     return app
