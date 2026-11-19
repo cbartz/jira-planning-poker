@@ -58,7 +58,9 @@ gunicorn --workers 1 --threads 8 --bind 127.0.0.1:8000 app:app
 Open `http://127.0.0.1:8000`. The optional `FLASK_JIRA_JQL` defaults to
 `labels = grooming ORDER BY priority DESC, Rank ASC`. Loading keeps up to 200
 tickets; above that limit, Jira can provide only an approximate count. Refresh
-reruns the configured JQL. Changing the epic filter or polling never calls Jira.
+reruns the configured JQL. Loading can fetch missing parent metadata in batches
+to group subtasks under their actual epic. Changing the epic filter or polling
+never calls Jira.
 
 ## Deploy on Juju
 

@@ -43,7 +43,7 @@ def test_enhanced_search_paginates(jira):
     issue = {'key': 'P-1', 'fields': {'summary': 'Story', 'labels': ['S', 'grooming'],
              'customfield_10024': 2, 'issuetype': {'name': 'Story'}, 'status': {'name': 'Open'},
              'priority': {'name': 'Urgent', 'iconUrl': 'https://site.atlassian.net/icon'},
-             'parent': {'key': 'P-9', 'fields': {'summary': 'Epic'}}}}
+             'parent': {'key': 'P-9', 'fields': {'summary': 'Epic', 'issuetype': {'hierarchyLevel': 1}}}}}
     for query, page in [(params, {'issues': [issue], 'nextPageToken': 'next'}),
                         (dict(params, maxResults='199', nextPageToken='next'),
                          {'issues': [{'key': 'P-2', 'fields': {}}], 'isLast': True})]:
@@ -57,6 +57,58 @@ def test_enhanced_search_paginates(jira):
                                 'Story', 'Open', 'Urgent', 'https://site.atlassian.net/icon',
                                 'P-9', 'Epic', ('S', 'grooming'), 2)
     assert tickets[1].key == 'P-2'
+
+
+@responses.activate(assert_all_requests_are_fired=False)
+def test_search_bounds_empty_continuation_pages(jira, monkeypatch):
+    monkeypatch.setattr('jira.MAX_SEARCH_PAGES', 3, raising=False)
+    for token in ('one', 'two', 'three'):
+        responses.get(f'{API}/search/jql', json={'issues': [], 'nextPageToken': token})
+    fallback = responses.get(f'{API}/search/jql', json={'issues': [], 'isLast': True})
+    with pytest.raises(JiraError, match='exceeded 3 pages'):
+        jira.search()
+    assert len(responses.calls) == 3
+    assert fallback.call_count == 0
+
+
+@responses.activate
+def test_search_uses_loaded_parent_to_find_subtask_epic(jira):
+    epic = {'key': 'P-9', 'fields': {'summary': 'Rollout', 'issuetype': {'hierarchyLevel': 1}}}
+    parent = {'key': 'P-8', 'fields': {'summary': 'Story', 'issuetype': {'hierarchyLevel': 0}}}
+    subtask = {'key': 'P-1', 'fields': {'issuetype': {'subtask': True}, 'parent': parent}}
+    story = {'key': 'P-8', 'fields': {**parent['fields'], 'parent': epic}}
+    responses.get(f'{API}/search/jql', json={'issues': [subtask, story], 'isLast': True})
+    tickets, _, _ = jira.search()
+    assert [(ticket.key, ticket.epic_key, ticket.epic_summary) for ticket in tickets] == [
+        ('P-1', 'P-9', 'Rollout'), ('P-8', 'P-9', 'Rollout'),
+    ]
+    assert len(responses.calls) == 1
+
+
+@responses.activate
+def test_search_bulk_fetches_missing_parent_once_for_subtasks(jira):
+    story_type = {'hierarchyLevel': 0, 'subtask': False}
+    story = {'key': 'P-8', 'fields': {'issuetype': story_type, 'parent': {
+        'key': 'P-9', 'fields': {'summary': 'Rollout', 'issuetype': {'hierarchyLevel': 1}},
+    }}}
+    issues = [
+        {'key': 'P-1', 'fields': {'issuetype': {'hierarchyLevel': -1},
+                                  'parent': {'key': 'P-8', 'fields': {'issuetype': story_type}}}},
+        {'key': 'P-2', 'fields': {'issuetype': {'subtask': True}, 'parent': {'key': 'P-8'}}},
+        {'key': 'P-3', 'fields': {'issuetype': {'subtask': True}, 'parent': {'key': 'P-7'}}},
+        {'key': 'P-4', 'fields': {'issuetype': {'hierarchyLevel': 1}, 'parent': {
+            'key': 'P-10', 'fields': {'summary': 'Initiative', 'issuetype': {'hierarchyLevel': 2}},
+        }}},
+    ]
+    responses.get(f'{API}/search/jql', json={'issues': issues, 'isLast': True})
+    responses.post(f'{API}/issue/bulkfetch', json={'issues': [story]}, match=[
+        matchers.json_params_matcher({'issueIdsOrKeys': ['P-7', 'P-8'],
+                                      'fields': ['parent', 'issuetype', 'summary']}),
+    ])
+    tickets, _, _ = jira.search()
+    assert [(ticket.key, ticket.epic_key) for ticket in tickets] == [
+        ('P-1', 'P-9'), ('P-2', 'P-9'), ('P-3', None), ('P-4', None),
+    ]
 
 
 @pytest.mark.parametrize(('count_status', 'payload', 'expected'), [

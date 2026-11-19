@@ -71,6 +71,8 @@ Cards: `XS`, `S`, `M`, `L`, `?` (`?` = "can't estimate", never written to Jira).
     has loaded tickets, with its key and summary and the count of pending tickets.
   - The options are built from the `parent` field of the loaded snapshot. This uses
     the hierarchy that is current in Jira Cloud, not the legacy "Epic Link" field.
+    For subtasks, the load resolves the story or task's epic using the snapshot
+    or a bulk parent lookup. Only Jira hierarchy-level 1 parents appear as epics.
   - Filtering happens **in memory on the server**. It never adds to the JQL, so there
     is no user input in JQL and no injection surface.
   - The selected epic is part of the room state, so everyone sees the same filtered
